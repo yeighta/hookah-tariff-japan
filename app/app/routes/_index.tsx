@@ -193,15 +193,15 @@ export default function Index() {
 
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">為替レート (1{formData.currency}):</span>
-                <span className="text-lg font-medium">{exchangeRates?.conversion_rates.JPY.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(exchangeRates?.conversion_rates.JPY).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">小売価格:</span>
-                <span className="text-lg font-medium">{result.retailPriceInJpy.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.retailPriceInJpy).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">課税価格:</span>
-                <span className="text-lg font-medium">{result.taxablePrice.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.taxablePrice).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="text-sm text-gray-500 mb-2">
                 <div>計算式:</div>
@@ -209,7 +209,7 @@ export default function Index() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">関税:</span>
-                <span className="text-lg font-medium">{result.customsDuty.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.customsDuty).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="text-sm text-gray-500 mb-2">
                 <div>計算式:</div>
@@ -219,7 +219,7 @@ export default function Index() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">タバコ税:</span>
-                <span className="text-lg font-medium">{result.tobaccoTax.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.tobaccoTax).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="text-sm text-gray-500 mb-2">
                 <div>計算式:</div>
@@ -228,7 +228,7 @@ export default function Index() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">消費税:</span>
-                <span className="text-lg font-medium">{result.consumptionTax.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.consumptionTax).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="text-sm text-gray-500 mb-2">
                 <div>計算式:</div>
@@ -240,11 +240,11 @@ export default function Index() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-200">
                 <span className="text-gray-600">送料:</span>
-                <span className="text-lg font-medium">{result.shippingCostInJpy.toLocaleString()} 円</span>
+                <span className="text-lg font-medium">{Number(result.shippingCostInJpy).toLocaleString('ja-JP')} 円</span>
               </div>
               <div className="flex justify-between items-center py-3 mt-2">
                 <span className="text-lg font-bold text-gray-900">合計金額:</span>
-                <span className="text-2xl font-bold text-blue-600">{result.totalAmount.toLocaleString()} 円</span>
+                <span className="text-2xl font-bold text-blue-600">{Number(result.totalAmount).toLocaleString('ja-JP')} 円</span>
               </div>
             </div>
           </div>
