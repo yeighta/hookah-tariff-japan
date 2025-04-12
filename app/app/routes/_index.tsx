@@ -10,7 +10,8 @@ import {
   calculateTotalAmountInJpy
 } from "~/utils/calculation";
 
-import type { MetaFunction } from "@remix-run/node";
+import type { MetaFunction, LoaderFunction } from "@remix-run/node";
+import { useLoaderData } from "@remix-run/react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -19,7 +20,29 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export const loader: LoaderFunction = async ({ request }) => {
+  const url = new URL(request.url);
+  const currency = url.searchParams.get("currency") || "USD";
+  
+  try {
+    const response = await fetch(
+      `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/latest/${currency}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("為替レートの取得に失敗しました:", error);
+    return { "error": "為替レートの取得に失敗しました" ,  "status": 500 };
+  }
+};
+
 export default function Index() {
+  const exchangeRates = useLoaderData<typeof loader>();
   const [formData, setFormData] = useState({
     retailPrice: "",
     shippingCost: "",
@@ -28,7 +51,6 @@ export default function Index() {
     isWtoMember: true,
   });
   const [result, setResult] = useState<CalculationResult | null>(null);
-  const [exchangeRates, setExchangeRates] = useState<{ conversion_rates: { JPY: number } } | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -39,26 +61,19 @@ export default function Index() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const response = await fetch(
-        `/api/exchange-rate?currency=${formData.currency}`
-      );
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
+      if (exchangeRates.error) {
+        throw new Error(exchangeRates.error);
       }
-
-      setExchangeRates(data);
       
-      const retailPrice =  parseFloat(formData.retailPrice);
-      const retailPriceInJpy = calculateInJpy(retailPrice, data.conversion_rates.JPY);
-      const shippingCost =  parseFloat(formData.shippingCost);
-      const weight =  parseFloat(formData.weight);
-      const isWtoMember =  formData.isWtoMember;
-      const exchangeRate =  data.conversion_rates.JPY;
+      const retailPrice = parseFloat(formData.retailPrice);
+      const retailPriceInJpy = calculateInJpy(retailPrice, exchangeRates.conversion_rates.JPY);
+      const shippingCost = parseFloat(formData.shippingCost);
+      const weight = parseFloat(formData.weight);
+      const isWtoMember = formData.isWtoMember;
+      const exchangeRate = exchangeRates.conversion_rates.JPY;
       
       const taxablePriceInJpy = calculateTaxablePriceInJpy(retailPrice, exchangeRate);
       const customsDutyInJpy = calculateTariffInJpy(taxablePriceInJpy, isWtoMember);
