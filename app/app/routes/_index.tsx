@@ -47,7 +47,7 @@ export default function Index() {
     retailPrice: "",
     shippingCost: "",
     weight: "",
-    currency: "USD",
+    currency: exchangeRates?.base_code || "USD",
     isWtoMember: true,
   });
   const [result, setResult] = useState<CalculationResult | null>(null);
@@ -55,10 +55,18 @@ export default function Index() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    
     setFormData(prevData => ({
       ...prevData,
       [name]: newValue,
     }));
+
+    // 通貨が変更された場合、URLパラメータを更新してLoaderを再実行させる
+    if (name === "currency") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("currency", value);
+      window.location.href = url.toString();
+    }
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -162,6 +170,8 @@ export default function Index() {
                 >
                   <option value="USD">USD (米ドル)</option>
                   <option value="EUR">EUR (ユーロ)</option>
+                  <option value="RUB">RUB (ロシア・ルーブル)</option>
+                  <option value="HKD">HKD (香港ドル)</option>
                 </select>
               </div>
             </div>
