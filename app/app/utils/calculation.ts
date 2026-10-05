@@ -1,7 +1,9 @@
-const TOBACCO_TAX_RATE = 15244;
-const CONSUMPTION_TAX_RATE = 0.1;
-const TARIFF_RATE_WTO = 0.298;
-const TARIFF_RATE_NON_WTO = 0.35;
+export const TOBACCO_TAX_RATE = 15244;
+export const CONSUMPTION_TAX_RATE = 0.1;
+export const TAXABLE_PRICE_RATIO = 0.6;
+export const DUTY_FREE_LIMIT_JPY = 10000;
+export const TARIFF_RATE_WTO = 0.298;
+export const TARIFF_RATE_NON_WTO = 0.35;
 
 export interface CalculationResult {
   retailPrice: number;
@@ -31,11 +33,11 @@ export function calculateTobaccoTaxInJpy(weight: number): number {
 
 // 課税価格の計算
 export function calculateTaxablePriceInJpy(retailPrice: number, exchangeRate: number): number {
-  return retailPrice * 0.6 * exchangeRate;
+  return retailPrice * TAXABLE_PRICE_RATIO * exchangeRate;
 }
 
-function isTaxablePriceLessThan10000(taxablePriceJpy: number): boolean {
-  return taxablePriceJpy <= 10000;
+export function isTaxablePriceLessThan10000(taxablePriceJpy: number): boolean {
+  return taxablePriceJpy <= DUTY_FREE_LIMIT_JPY;
 }
 
 // 関税の計算
@@ -66,4 +68,32 @@ export function calculateInJpy(cost: number, exchangeRate: number): number {
 
 export function calculateTotalAmountInJpy(retailPriceJpy: number, customsDutyJpy: number, tobaccoTaxJpy: number, consumptionTaxJpy: number, shippingCostJpy: number): number {
   return retailPriceJpy + customsDutyJpy + tobaccoTaxJpy + consumptionTaxJpy + shippingCostJpy;
+}
+
+export interface EstimateInput {
+  retailPrice: number;
+  shippingCost: number;
+  weight: number;
+  exchangeRate: number;
+  isWtoMember: boolean;
+}
+
+export function estimate({ retailPrice, shippingCost, weight, exchangeRate, isWtoMember }: EstimateInput): CalculationResult {
+  const retailPriceInJpy = calculateInJpy(retailPrice, exchangeRate);
+  const taxablePrice = calculateTaxablePriceInJpy(retailPrice, exchangeRate);
+  const customsDuty = calculateTariffInJpy(taxablePrice, isWtoMember);
+  const tobaccoTax = calculateTobaccoTaxInJpy(weight);
+  const consumptionTax = calculateConsumptionTaxInJpy(taxablePrice, customsDuty);
+  const shippingCostInJpy = calculateInJpy(shippingCost, exchangeRate);
+
+  return {
+    retailPrice,
+    retailPriceInJpy,
+    taxablePrice,
+    customsDuty,
+    tobaccoTax,
+    consumptionTax,
+    shippingCostInJpy,
+    totalAmount: calculateTotalAmountInJpy(retailPriceInJpy, customsDuty, tobaccoTax, consumptionTax, shippingCostInJpy),
+  };
 }

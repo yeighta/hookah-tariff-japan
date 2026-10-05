@@ -10,7 +10,6 @@ import type { LinksFunction } from "@remix-run/node";
 import styles from "~/tailwind.css?url";
 
 export const links: LinksFunction = () => [
-  { rel: "stylesheet", href: styles },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -19,8 +18,10 @@ export const links: LinksFunction = () => [
   },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap",
   },
+  { rel: "stylesheet", href: styles },
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#EEF2EF" />
+        <meta name="color-scheme" content="light" />
         <Meta />
         <Links />
       </head>
@@ -46,5 +49,5 @@ export default function App() {
 }
 
 export function HydrateFallback() {
-  return <p>Loading...</p>;
+  return <p>読み込み中…</p>;
 }
