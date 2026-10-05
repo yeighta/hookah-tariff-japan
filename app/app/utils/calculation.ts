@@ -1,7 +1,18 @@
+// 税率は税関の公表値を確認した日付。改定があればここと各定数を更新する。
+// - パイプたばこの関税・たばこ税: https://www.customs.go.jp/tsukan/yubin/tobacco.htm
+// - 課税価格1万円以下の免税（たばこ税は対象外）: https://www.customs.go.jp/tetsuzuki/c-answer/imtsukan/1006_jr.htm
+export const TAX_RATES_CHECKED_ON = "2026-10-05";
+export const TAX_RATES_SOURCE_URL = "https://www.customs.go.jp/tsukan/yubin/tobacco.htm";
+
+// たばこ税＋たばこ特別税（パイプたばこ、1kgあたり円）
 export const TOBACCO_TAX_RATE = 15244;
+// 消費税＋地方消費税
 export const CONSUMPTION_TAX_RATE = 0.1;
+// 個人使用目的の輸入では、海外小売価格の60%を課税価格とする
 export const TAXABLE_PRICE_RATIO = 0.6;
+// 課税価格がこの額以下なら関税・消費税は免除（たばこ税は免除されない）
 export const DUTY_FREE_LIMIT_JPY = 10000;
+// パイプたばこの関税率（協定税率 / 基本税率）
 export const TARIFF_RATE_WTO = 0.298;
 export const TARIFF_RATE_NON_WTO = 0.35;
 
@@ -36,13 +47,14 @@ export function calculateTaxablePriceInJpy(retailPrice: number, exchangeRate: nu
   return retailPrice * TAXABLE_PRICE_RATIO * exchangeRate;
 }
 
-export function isTaxablePriceLessThan10000(taxablePriceJpy: number): boolean {
+// 課税価格が少額免税の範囲（1万円以下）に収まるか
+export function isWithinDutyFreeLimit(taxablePriceJpy: number): boolean {
   return taxablePriceJpy <= DUTY_FREE_LIMIT_JPY;
 }
 
 // 関税の計算
 export function calculateTariffInJpy(taxablePriceJpy: number, isWtoMember: boolean): number {
-  if (isTaxablePriceLessThan10000(taxablePriceJpy)) {
+  if (isWithinDutyFreeLimit(taxablePriceJpy)) {
     return 0;
   }
   
@@ -54,7 +66,7 @@ export function calculateTariffInJpy(taxablePriceJpy: number, isWtoMember: boole
   
 // 消費税の計算
 export function calculateConsumptionTaxInJpy(taxablePriceJpy: number, tariffJpy: number): number {
-  if (isTaxablePriceLessThan10000(taxablePriceJpy)) {
+  if (isWithinDutyFreeLimit(taxablePriceJpy)) {
     return 0;
   }
 
