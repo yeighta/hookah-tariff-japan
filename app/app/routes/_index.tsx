@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { json } from "@remix-run/node";
-import type { MetaFunction } from "@remix-run/node";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 
 import {
@@ -17,36 +17,67 @@ import {
   isWithinDutyFreeLimit,
   roundDownToNearest1000,
 } from "~/utils/calculation";
+import { hasShareInput, parseShareParams, toShareParams } from "~/utils/share";
+import type { CurrencyCode, ShareState } from "~/utils/share";
 
-const CURRENCIES = [
+const CURRENCIES: { code: CurrencyCode; name: string }[] = [
   { code: "USD", name: "米ドル" },
   { code: "EUR", name: "ユーロ" },
   { code: "RUB", name: "ルーブル" },
   { code: "HKD", name: "香港ドル" },
-] as const;
-
-type CurrencyCode = (typeof CURRENCIES)[number]["code"];
+];
 
 const WEIGHT_PRESETS = [50, 100, 200, 250, 1000];
 
-export const meta: MetaFunction = () => {
-  const title = "シーシャ輸入税計算｜関税・たばこ税・消費税の見積もり";
-  const description =
-    "海外から個人輸入するシーシャフレーバーの関税・たばこ税・消費税を、価格と重量からその場で見積もります。";
+const SITE_NAME = "シーシャ輸入税計算";
+const SITE_DESCRIPTION =
+  "海外から個人輸入するシーシャフレーバーの関税・たばこ税・消費税を、価格と重量からその場で見積もります。";
+
+// A shared link previews with its own total, so the card in a timeline already answers the question.
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  let title = `${SITE_NAME}｜関税・たばこ税・消費税の見積もり`;
+  let description = SITE_DESCRIPTION;
+
+  if (data?.rates && hasShareInput(data.shared)) {
+    const { shared } = data;
+    const result = estimate({
+      retailPrice: toNumber(shared.price),
+      shippingCost: toNumber(shared.shipping),
+      weight: toNumber(shared.weight),
+      exchangeRate: data.rates[shared.currency],
+      isWtoMember: shared.isWtoMember,
+    });
+    title = `支払い総額の目安 ${yen(result.totalAmount)}円｜${SITE_NAME}`;
+    description = `商品 ${shared.price || 0} ${shared.currency}、送料 ${shared.shipping || 0} ${shared.currency}、たばこ ${shared.weight || 0}g の場合。関税 ${yen(result.customsDuty)}円、たばこ税 ${yen(result.tobaccoTax)}円、消費税 ${yen(result.consumptionTax)}円を含みます。${shared.isWtoMember ? "" : "原産国はWTO非加盟国として計算。"}`;
+  }
+
+  const image = `${data?.origin ?? ""}/og-image.png`;
   return [
     { title },
     { name: "description", content: description },
     { property: "og:title", content: title },
     { property: "og:description", content: description },
     { property: "og:type", content: "website" },
-    { property: "og:site_name", content: "Shisha Tariff Calculator for Japan" },
-    { name: "twitter:card", content: "summary" },
+    { property: "og:site_name", content: SITE_NAME },
+    { property: "og:locale", content: "ja_JP" },
+    ...(data?.url ? [{ property: "og:url", content: data.url }] : []),
+    { property: "og:image", content: image },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:alt", content: `${SITE_NAME}のロゴと「関税・たばこ税・消費税をその場で見積もり」の文字` },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: title },
+    { name: "twitter:description", content: description },
+    { name: "twitter:image", content: image },
   ];
 };
 
 // Rates are fetched once against USD and turned into "JPY per 1 unit" for every
 // supported currency, so switching currency never needs a round trip.
-export const loader = async () => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const url = new URL(request.url);
+  const page = { shared: parseShareParams(url.searchParams), url: url.toString(), origin: url.origin };
+
   try {
     const response = await fetch(
       `https://v6.exchangerate-api.com/v6/${process.env.EXCHANGE_RATE_API_KEY}/latest/USD`
@@ -63,12 +94,12 @@ export const loader = async () => {
     ) as Record<CurrencyCode, number>;
 
     return json(
-      { rates, updatedAt: data.time_last_update_unix as number },
+      { ...page, rates, updatedAt: data.time_last_update_unix as number },
       { headers: { "Cache-Control": "public, max-age=600, s-maxage=3600" } }
     );
   } catch (error) {
     console.error("為替レートの取得に失敗しました:", error);
-    return json({ rates: null, updatedAt: null });
+    return json({ ...page, rates: null, updatedAt: null });
   }
 };
 
@@ -103,14 +134,28 @@ function useDebounced<T>(value: T, delay: number) {
 }
 
 export default function Index() {
-  const { rates, updatedAt } = useLoaderData<typeof loader>();
+  const { rates, updatedAt, shared } = useLoaderData<typeof loader>();
 
-  const [currency, setCurrency] = useState<CurrencyCode>("USD");
-  const [retailPrice, setRetailPrice] = useState("");
-  const [shippingCost, setShippingCost] = useState("");
-  const [weight, setWeight] = useState("");
-  const [isWtoMember, setIsWtoMember] = useState(true);
+  const [currency, setCurrency] = useState<CurrencyCode>(shared.currency);
+  const [retailPrice, setRetailPrice] = useState(shared.price);
+  const [shippingCost, setShippingCost] = useState(shared.shipping);
+  const [weight, setWeight] = useState(shared.weight);
+  const [isWtoMember, setIsWtoMember] = useState(shared.isWtoMember);
   const [manualRate, setManualRate] = useState("");
+
+  // Keep the address bar in step with the form, so the URL itself is always the link to share.
+  // replaceState (not a router navigation) keeps the loader, and the rate API, out of every keystroke.
+  const shareState: ShareState = { currency, price: retailPrice, shipping: shippingCost, weight, isWtoMember };
+  const shareSearch = toShareParams(shareState).toString();
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const next = `${window.location.pathname}${shareSearch ? `?${shareSearch}` : ""}`;
+      if (next !== window.location.pathname + window.location.search) {
+        window.history.replaceState(window.history.state, "", next);
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [shareSearch]);
 
   const exchangeRate = rates ? rates[currency] : toNumber(manualRate);
   const result = estimate({
@@ -217,6 +262,7 @@ export default function Index() {
           shippingCost={toNumber(shippingCost)}
           weight={toNumber(weight)}
           isWtoMember={isWtoMember}
+          shareSearch={shareSearch}
         />
       </main>
 
@@ -485,6 +531,7 @@ function ResultPanel({
   shippingCost,
   weight,
   isWtoMember,
+  shareSearch,
 }: {
   result: ReturnType<typeof estimate>;
   hasInput: boolean;
@@ -494,6 +541,7 @@ function ResultPanel({
   shippingCost: number;
   weight: number;
   isWtoMember: boolean;
+  shareSearch: string;
 }) {
   const total = hasInput ? result.totalAmount : 0;
   const announced = useDebounced(total, 700);
@@ -666,6 +714,12 @@ function ResultPanel({
                     : "1万円を超えたため、関税と消費税がかかります。"}
               </p>
             </div>
+
+            <ShareActions
+              search={shareSearch}
+              disabled={!hasInput}
+              text={`シーシャ輸入の支払い総額の目安は${yen(total)}円（うち税金${yen(taxes)}円）`}
+            />
           </div>
         </div>
       </div>
@@ -785,6 +839,93 @@ function Smoke() {
       <path pathLength={1} d="M70 200C48 170 92 150 70 118S46 70 74 40 66 8 80 0" stroke="#E6EEE9" strokeWidth="7" strokeLinecap="round" />
       <path pathLength={1} d="M92 200C76 176 108 160 96 132S80 96 100 70" stroke="#8DB5A8" strokeWidth="5" strokeLinecap="round" />
       <path pathLength={1} d="M52 200C40 182 64 164 54 140S40 112 56 92" stroke="#B9A3E3" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ShareActions({ search, text, disabled }: { search: string; text: string; disabled: boolean }) {
+  const [pageUrl, setPageUrl] = useState("");
+  const [nativeShare, setNativeShare] = useState(false);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    setPageUrl(window.location.origin + window.location.pathname);
+    // Phones get the system share sheet; on desktop a copied link is what people expect.
+    setNativeShare(typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
+  useEffect(() => {
+    if (status === "idle") return;
+    const id = setTimeout(() => setStatus("idle"), 2400);
+    return () => clearTimeout(id);
+  }, [status]);
+
+  const shareUrl = `${pageUrl}${search ? `?${search}` : ""}`;
+  const postUrl = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+
+  const share = async () => {
+    if (nativeShare) {
+      try {
+        await navigator.share({ title: SITE_NAME, text, url: shareUrl });
+      } catch {
+        // Closing the share sheet rejects; nothing to report.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    }
+  };
+
+  return (
+    <div className="mt-6 border-t border-glass-line pt-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={share}
+          disabled={disabled}
+          className="inline-flex items-center gap-2 rounded-full bg-leaf px-4 py-2.5 text-sm font-bold text-glass transition-[background-color,opacity] duration-150 hover:bg-white focus-visible:ring-brass focus-visible:ring-offset-glass disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-leaf"
+        >
+          <LinkIcon className="h-4 w-4" />
+          {nativeShare ? "結果を共有" : status === "copied" ? "コピーしました" : "リンクをコピー"}
+        </button>
+        <a
+          href={postUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : undefined}
+          className={`inline-flex items-center rounded-full border border-glass-line px-4 py-2.5 text-sm font-bold text-leaf transition-colors duration-150 hover:border-sage focus-visible:ring-brass focus-visible:ring-offset-glass ${
+            disabled ? "pointer-events-none opacity-40" : ""
+          }`}
+        >
+          Xでポスト
+        </a>
+      </div>
+      <p className="mt-2.5 min-h-[1.5em] text-xs leading-relaxed text-sage" aria-live="polite">
+        {status === "failed"
+          ? "コピーできませんでした。アドレスバーのURLをそのまま共有できます。"
+          : disabled
+            ? "入力すると、この見積もりをリンクで共有できます。"
+            : "リンクを開くと、同じ条件の見積もりが表示されます。"}
+      </p>
+    </div>
+  );
+}
+
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className={className} aria-hidden>
+      <path
+        d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
