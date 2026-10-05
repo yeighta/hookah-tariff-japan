@@ -2,7 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
+@layer base {
+  html {
+    @apply bg-mist text-ink antialiased;
+    font-feature-settings: "palt" 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply min-h-screen bg-mist font-sans;
+  }
+
+  ::selection {
+    @apply bg-brass/40 text-ink;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-glass ring-offset-2 ring-offset-mist;
+  }
+}
+
+@layer utilities {
+  .num {
+    font-family: "Bricolage Grotesque", ui-sans-serif, sans-serif;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+}
+
+/* One orchestrated entrance: the form settles, then the glass panel rises. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.enter {
+  animation: settle 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.enter-late {
+  animation: settle 0.9s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* A wisp of smoke leaves the glass each time the estimate settles on a new total. */
+@keyframes puff {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+    transform: translateY(24px) scaleX(0.9);
+  }
+  25% {
+    opacity: 0.55;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+    transform: translateY(-36px) scaleX(1.25);
+  }
+}
+
+.puff path {
+  stroke-dasharray: 1;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: puff 2.2s cubic-bezier(0.25, 0.6, 0.3, 1) both;
+}
+
+.puff path:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.puff path:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puff {
+    display: none;
+  }
 }
