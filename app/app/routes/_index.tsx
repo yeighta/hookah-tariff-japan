@@ -10,9 +10,11 @@ import {
   TARIFF_RATE_NON_WTO,
   TARIFF_RATE_WTO,
   TAXABLE_PRICE_RATIO,
+  TAX_RATES_CHECKED_ON,
+  TAX_RATES_SOURCE_URL,
   TOBACCO_TAX_RATE,
   estimate,
-  isTaxablePriceLessThan10000,
+  isWithinDutyFreeLimit,
   roundDownToNearest1000,
 } from "~/utils/calculation";
 
@@ -225,7 +227,22 @@ export default function Index() {
             表示は目安で、実際の税額は税関が公示するレートと判断によって決まります。
           </p>
           <p className="mt-2">
-            為替レート提供{" "}
+            税率は
+            <a
+              className="underline decoration-mist-line underline-offset-4 hover:text-ink"
+              href={TAX_RATES_SOURCE_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              税関の公表値
+            </a>
+            （
+            <time dateTime={TAX_RATES_CHECKED_ON}>
+              {new Intl.DateTimeFormat("ja-JP", { dateStyle: "long", timeZone: "Asia/Tokyo" }).format(
+                new Date(`${TAX_RATES_CHECKED_ON}T00:00:00+09:00`)
+              )}
+            </time>
+            時点）。為替レート提供{" "}
             <a
               className="underline decoration-mist-line underline-offset-4 hover:text-ink"
               href="https://www.exchangerate-api.com"
@@ -487,7 +504,7 @@ function ResultPanel({
     return () => observer.disconnect();
   }, []);
 
-  const exempt = isTaxablePriceLessThan10000(result.taxablePrice);
+  const exempt = isWithinDutyFreeLimit(result.taxablePrice);
   const tariffRate = isWtoMember ? TARIFF_RATE_WTO : TARIFF_RATE_NON_WTO;
   const rateText = `${formatRate(exchangeRate)}円`;
   const taxableText = `課税価格 ${yen(result.taxablePrice)}円`;
