@@ -268,14 +268,27 @@ function Backdrop() {
   );
 }
 
+// The katakana シ: two short strokes are the coals, the long stroke rises and thins out like smoke.
+// Keep in sync with public/favicon.svg.
 function BrandMark({ className }: { className?: string }) {
+  const fadeId = `${useId().replace(/:/g, "")}-fade`;
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <path d="M11 4.5h10l-2 4h-6z" fill="#D4AE55" />
-      <rect x="15" y="8.5" width="2" height="9" rx="1" fill="#0D3D36" />
-      <path d="M12 13h8" stroke="#0D3D36" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="16" cy="23.5" r="6.5" fill="#0D3D36" />
-      <path d="M11.2 24.5a5 5 0 0 0 9.6 0z" fill="#8DB5A8" />
+      <defs>
+        <linearGradient id={fadeId} x1="0" y1="1" x2="0.6" y2="0">
+          <stop offset="0.35" stopColor="#EEF2EF" />
+          <stop offset="1" stopColor="#EEF2EF" stopOpacity="0.35" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="#0D3D36" />
+      <path d="M7.5 8.5l3.6 2.4M6.5 14.5l3.6 2.4" stroke="#D4AE55" strokeWidth="2.6" strokeLinecap="round" />
+      <path
+        d="M8 25.5C14 24.5 17.5 21 18.5 16.5S21.5 8.5 25.5 7"
+        stroke={`url(#${fadeId})`}
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        fill="none"
+      />
     </svg>
   );
 }
